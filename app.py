@@ -3,36 +3,47 @@ import pandas as pd
 import joblib
 
 
-crop_model = joblib.load("crop_model.pkl")
+# -------------------- Load Model --------------------
+@st.cache_resource
+def load_model():
+    return joblib.load("crop_model.pkl")
 
 
+model = load_model()
+
+
+# -------------------- UI --------------------
 st.title("🌾 Crop Recommendation System")
 st.write(
-    "Provide soil nutrient values and climate conditions to get a suitable crop recommendation."
+    "Enter soil nutrient values and climate conditions. "
+    "The system will recommend a suitable crop based on trained ML predictions."
 )
 
 
+# -------------------- Input Section --------------------
+st.subheader("Soil Nutrients")
 nitrogen = st.number_input("Nitrogen (N)", min_value=0.0)
 phosphorus = st.number_input("Phosphorus (P)", min_value=0.0)
 potassium = st.number_input("Potassium (K)", min_value=0.0)
 
+st.subheader("Climate Conditions")
 temperature = st.number_input("Temperature (°C)", min_value=0.0)
 humidity = st.number_input("Humidity (%)", min_value=0.0)
 soil_ph = st.number_input("Soil pH", min_value=0.0)
 rainfall = st.number_input("Rainfall (mm)", min_value=0.0)
 
 
-if st.button("Recommend Crop"):
-
-   
-    nitrogen_phosphorus_ratio = nitrogen / (phosphorus + 1)
-    potassium_nitrogen_ratio = potassium / (nitrogen + 1)
-
-   
+# -------------------- Feature Engineering --------------------
+def create_features():
+    """
+    Create additional derived features from raw inputs
+    to help the ML model capture relationships better.
+    """
+    n_p_ratio = nitrogen / (phosphorus + 1)
+    k_n_ratio = potassium / (nitrogen + 1)
     climate_index = (temperature + humidity) / 2
 
-
-    input_data = pd.DataFrame(
+    return pd.DataFrame(
         [[
             nitrogen,
             phosphorus,
@@ -41,8 +52,8 @@ if st.button("Recommend Crop"):
             humidity,
             soil_ph,
             rainfall,
-            nitrogen_phosphorus_ratio,
-            potassium_nitrogen_ratio,
+            n_p_ratio,
+            k_n_ratio,
             climate_index
         ]],
         columns=[
@@ -58,5 +69,22 @@ if st.button("Recommend Crop"):
             "climate_index"
         ]
     )
-    predicted_crop = crop_model.predict(input_data)
-    st.success(f"🌱 Recommended Crop: **{predicted_crop[0]}**")
+
+
+# -------------------- Prediction --------------------
+if st.button("Recommend Crop"):
+
+    if nitrogen == 0 and phosphorus == 0 and potassium == 0:
+        st.warning("Please enter valid soil nutrient values.")
+    else:
+        input_df = create_features()
+        prediction = model.predict(input_df)
+
+        st.success(
+            f"🌱 **Recommended Crop:** {prediction[0]}"
+        )
+
+        st.caption(
+            "Recommendation is based on soil nutrients, climate conditions, "
+            "and engineered features such as nutrient ratios."
+        )
